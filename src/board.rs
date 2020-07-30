@@ -112,8 +112,11 @@ impl Board {
 
     pub fn knight(&self) -> u64 {
         let all = (self.curr | self.other);
+
+        // get all knights and kings
         let knk = all & !(self.pawns() | self.rook | self.bishop);
 
+        // filter out kings
         knk & !(1 << self.cking | 1 << self.oking)
     }
 

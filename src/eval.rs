@@ -158,11 +158,11 @@ pub fn eval(pos: &mut Position) -> i32 {
     let queen  = pos.board.queen();
     let bishop = pos.board.bishop & !queen;
     let rook   = pos.board.rook   & !queen;
-    pos.set_threats();
-    out -= pos.threats.count_ones() as i32 * THREATS;
-    pos.board.invert();
-    out += pos.board.threats(pos.tables).count_ones() as i32 * THREATS;
-    pos.board.invert();
+    // pos.set_threats();
+    // out -= pos.threats.count_ones() as i32 * THREATS;
+    // pos.board.invert();
+    // out += pos.board.threats(pos.tables).count_ones() as i32 * THREATS;
+    // pos.board.invert();
 
     out += eval_tables(pos.board.curr & pawn  , PAWN_TABLE);
     out += eval_tables(pos.board.curr & knight, KNIGHT_TABLE);

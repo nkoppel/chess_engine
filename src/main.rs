@@ -33,14 +33,16 @@ fn main() {
     println!("{}", position.board);
     position.set_moves();
     while position.test_endgame() == None {
-        // for i in 0..10000 {
+        /* ==================== Monte-Carlo AI ====================== */
+        // for i in 0..2500 {
             // tree.search(position.clone());
         // }
         // let mov = tree.get_best_move();
-        // for m in tree.get_searched_line() {
+        // for m in tree.get_best_line() {
             // print!("{} ", Moves::move_to_string(&m, position.board.inverted));
         // }
         // println!();
+        // let moves = position.gen_moves();
 
         // tree.do_move(&mov);
         // println!("{}", Moves::move_to_string(&mov, position.board.inverted));
@@ -49,37 +51,45 @@ fn main() {
         // println!("{}", position.board);
         // position.set_moves();
 
-        // if position.test_endgame() != None {
-            // break;
+        // if !moves.contains(&mov) {
+            // panic!("Invalid move!");
         // }
-        // let mut buf = String::new();
-        // print!("Enter your move: ");
-        // std::io::stdout().flush();
-        // stdin.read_line(&mut buf);
-        // let mut mov = Moves::string_to_move(&buf, &position.board);
-        // position.set_moves();
-        // let moves = position.gen_moves();
-        // while !moves.contains(&mov) {
-            // println!("Invalid move!");
-            // print!("Enter your move: ");
-            // std::io::stdout().flush();
-            // buf.clear();
-            // stdin.read_line(&mut buf);
-            // mov = Moves::string_to_move(&buf, &position.board);
-        // }
-        // position.do_move(&mov);
-        // position.board.invert();
-        // println!("{}", position.board);
-        // position.set_moves();
+
+        /* ==================== User Interface ====================== */
+        if position.test_endgame() != None {
+            break;
+        }
+        let mut buf = String::new();
+        print!("Enter your move: ");
+        std::io::stdout().flush();
+        stdin.read_line(&mut buf);
+        let mut mov = Moves::string_to_move(&buf, &position.board);
+        position.set_moves();
+        let moves = position.gen_moves();
+        while !moves.contains(&mov) {
+            println!("Invalid move!");
+            print!("Enter your move: ");
+            std::io::stdout().flush();
+            buf.clear();
+            stdin.read_line(&mut buf);
+            mov = Moves::string_to_move(&buf, &position.board);
+        }
+        position.do_move(&mov);
+        position.board.invert();
+        println!("{}", position.board);
+        position.set_moves();
 
         if position.test_endgame() != None {
             break;
         }
 
-        let mov = ab_search(position.clone(), 3000).unwrap();
+        /* ==================== Alpha-Beta AI ====================== */
+        let (mov, score) = ab_search(position.clone(), 5000);
+        let mov = mov.unwrap();
 
-        tree.do_move(&mov);
+        // tree.do_move(&mov);
         println!("{}", Moves::move_to_string(&mov, position.board.inverted));
+        println!("{}", score);
         position.do_move(&mov);
         position.board.invert();
         println!("{}", position.board);
@@ -179,6 +189,13 @@ mod tests {
         let tables = new_tables();
         let mut position = Position::from_fen(&tables, "Kqk5/8/8/8/8/8/8/8 w - - 0 1");
         assert_eq!(position.test_endgame(), Some(2));
+    }
+
+    #[test]
+    fn test_string_to_move() {
+        let mut board = Board::from_fen("Kqk5/8/8/8/8/8/8/8 w - - 0 1");
+        let _ = Moves::string_to_move("c7c8", &board);
+        ()
     }
 
     #[bench]

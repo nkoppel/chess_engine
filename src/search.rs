@@ -45,7 +45,19 @@ impl GameTree {
         maxloc
     }
 
-    fn expand(&mut self, position: &Position) {
+    fn calc_trust(&self) -> f64 {
+        (self.visits as f64 / 2.5 - 15.).atan() / std::f64::consts::PI + 0.5
+    }
+
+    fn update_ucb(&mut self, parent_visits: usize) {
+        self.ucb =
+            self.score +
+            std::f64::consts::SQRT_2 *
+            ((parent_visits as f64).ln() / self.visits as f64)
+    }
+
+    fn expand(&mut self, position: &mut Position) {
+        position.set_moves();
         self.children = position.gen_moves().into_iter().map(|m|
         {
             let mut pos = position.clone();
@@ -63,25 +75,31 @@ impl GameTree {
             } else {
                 child.score = pos.do_rollout() as f64 / 2.;
             }
+
+            if !pos.board.inverted {
+                child.score = 1. - child.score;
+            }
             Rc::new(RefCell::new(child))
         }).collect();
     }
 
-    fn search(&mut self, mut position: Position) {
+    pub fn search(&mut self, mut position: Position) {
         if self.endgame {
+            self.visits += 1;
             return;
         }
 
         if self.children.is_empty() {
-            self.expand(&position);
+            self.expand(&mut position);
         } else {
-            position.do_move(&self.mov);
+            let mut child = self.children[self.get_searched_move_loc()].borrow_mut();
+            position.do_move(&child.mov);
             position.board.invert();
-            self.children[self.get_searched_move_loc()].borrow_mut().search(position);
+            child.search(position);
         }
 
         let mut avg = 0.;
-        let mut best = if self.black {1.0} else {0.0};
+        let mut best = 0.;
         self.visits = 0;
         for c in self.children.iter() {
             let child = c.borrow();
@@ -89,13 +107,22 @@ impl GameTree {
             avg += child.score;
             self.visits += child.visits;
 
-            if (child.score < best) == self.black {
+            if child.score > best {
                 best = child.score;
             }
         }
 
         avg /= self.children.len() as f64;
 
+        best = 1. - best;
+        avg = 1. - avg;
+
+        let trust = self.calc_trust();
+        self.score = best * trust + avg * (1. - trust);
+
+        for c in self.children.iter() {
+            c.borrow_mut().update_ucb(self.visits);
+        }
     }
 
     fn get_best_move_loc(&self) -> usize {
@@ -124,7 +151,7 @@ impl GameTree {
         self.children = Vec::new();
         if tmp.borrow().mov == *m {
             *self = Rc::try_unwrap(tmp).ok().unwrap().into_inner();
-            assert_eq!(self.mov, *m);
+            println!("{}", self.score);
         } else {
             *self = GameTree::new();
         }
@@ -147,8 +174,10 @@ impl GameTree {
 
             let tmp = outer.borrow().clone().children[loc].clone();
             outer = tmp;
+            print!("{} ", outer.borrow().score);
             out.push(outer.borrow().mov.clone());
         }
+        println!();
 
         out
     }
@@ -203,7 +232,7 @@ pub fn alphabeta(mut pos: Position,
 }
 
 pub fn best_move(mut pos: Position, depth: usize, lastbest: Option<Move>)
-    -> Option<Move>
+    -> (Option<Move>, i32)
 {
     pos.set_moves();
     let mut best_move = None;
@@ -225,28 +254,32 @@ pub fn best_move(mut pos: Position, depth: usize, lastbest: Option<Move>)
             best_score = score;
         }
     }
-    return best_move;
+    return (best_move, best_score);
 }
 
 use std::io::Write;
 use std::time::{Duration, SystemTime};
 
-pub fn ab_search(mut pos: Position, time: usize) -> Option<Move> {
+pub fn ab_search(mut pos: Position, time: usize) -> (Option<Move>, i32) {
     let time = time as u128;
     let now = SystemTime::now();
 
     let mut best = None;
+    let mut score = 0;;
     let mut d = 1;
 
     while now.elapsed().ok().unwrap().as_millis() < time {
         print!("{}", d % 10);
         std::io::stdout().flush();
         match best_move(pos.clone(), d, best) {
-            None => return None,
-            m => best = m
+            (None, _) => return (None, score),
+            (m, s) => {
+                best = m;
+                score = s
+            }
         }
         d += 1;
     }
     println!();
-    best
+    (best, score)
 }
